@@ -52,6 +52,7 @@
 ]). %% Misc API.
 
 -include("http.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 %% Request API.
 
@@ -877,6 +878,8 @@ response_merge_headers(Headers, RespHeaders, DefaultHeaders) ->
 	-> cowboy_http:headers().
 merge_headers(Headers, []) ->
 	Headers;
+merge_headers(Headers, [{<<"Set-Cookie">>, Value}|Tail]) ->
+  merge_headers(Headers ++ [{<<"Set-Cookie">>, Value}], Tail);
 merge_headers(Headers, [{Name, Value}|Tail]) ->
 	Headers2 = case lists:keymember(Name, 1, Headers) of
 		true -> Headers;
@@ -1005,3 +1008,46 @@ header_to_binary('Cookie') -> <<"Cookie">>;
 header_to_binary('Keep-Alive') -> <<"Keep-Alive">>;
 header_to_binary('Proxy-Connection') -> <<"Proxy-Connection">>;
 header_to_binary(B) when is_binary(B) -> B.
+
+%% Tests.
+
+-ifdef(TEST).
+
+merge_headers_test() ->
+  Left0  = [{<<"Content-Length">>,<<"13">>},{<<"Server">>,<<"Cowboy">>}],
+  Right0 = [{<<"Set-Cookie">>,<<"foo=bar">>},{<<"Content-Length">>,<<"11">>}],
+
+  ?assertMatch(
+  [{<<"Content-Length">>,<<"13">>},
+   {<<"Server">>,<<"Cowboy">>},
+   {<<"Set-Cookie">>,<<"foo=bar">>}],
+  merge_headers(Left0, Right0)),
+
+  Left1  = [{<<"Content-Length">>,<<"13">>},{<<"Server">>,<<"Cowboy">>}],
+  Right1 = [{<<"Set-Cookie">>,<<"foo=bar">>},{<<"Set-Cookie">>,<<"bar=baz">>}],
+
+  ?assertMatch(
+  [{<<"Content-Length">>,<<"13">>},
+   {<<"Server">>,<<"Cowboy">>},
+   {<<"Set-Cookie">>,<<"foo=bar">>},
+   {<<"Set-Cookie">>,<<"bar=baz">>}],
+  merge_headers(Left1, Right1)),
+
+  ok.
+
+response_merge_headers_test() ->
+  First  = [{<<"Content-Length">>,<<"13">>},{'Server',<<"Cowboy">>}],
+  Second = [{<<"Set-Cookie">>,<<"foo=bar">>},{<<"Content-Length">>,<<"11">>}],
+  Third  = [{<<"Set-Cookie">>,<<"bar=baz">>},{<<"Content-Type">>,<<"text/html">>}],
+
+  ?assertMatch(
+  [{<<"Content-Length">>,<<"13">>},
+   {<<"Server">>,<<"Cowboy">>},
+   {<<"Set-Cookie">>,<<"foo=bar">>},
+   {<<"Set-Cookie">>,<<"bar=baz">>},
+   {<<"Content-Type">>,<<"text/html">>}],
+  response_merge_headers(First, Second, Third)),
+
+  ok.
+
+-endif.
