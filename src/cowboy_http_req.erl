@@ -870,20 +870,20 @@ response_connection_parse(ReplyConn) ->
 	cowboy_http:headers()) -> cowboy_http:headers().
 response_merge_headers(Headers, RespHeaders, DefaultHeaders) ->
 	Headers2 = [{header_to_binary(Key), Value} || {Key, Value} <- Headers],
-	merge_headers(
-		merge_headers(Headers2, RespHeaders),
-		DefaultHeaders).
+	lists:reverse(merge_headers(
+		merge_headers(lists:reverse(Headers2), RespHeaders),
+		DefaultHeaders)).
 
 -spec merge_headers(cowboy_http:headers(), cowboy_http:headers())
 	-> cowboy_http:headers().
 merge_headers(Headers, []) ->
 	Headers;
 merge_headers(Headers, [{<<"Set-Cookie">>, Value}|Tail]) ->
-  merge_headers(Headers ++ [{<<"Set-Cookie">>, Value}], Tail);
+  merge_headers([{<<"Set-Cookie">>, Value}|Headers], Tail);
 merge_headers(Headers, [{Name, Value}|Tail]) ->
 	Headers2 = case lists:keymember(Name, 1, Headers) of
 		true -> Headers;
-		false -> Headers ++ [{Name, Value}]
+		false -> [{Name, Value}|Headers]
 	end,
 	merge_headers(Headers2, Tail).
 
@@ -1018,19 +1018,19 @@ merge_headers_test() ->
   Right0 = [{<<"Set-Cookie">>,<<"foo=bar">>},{<<"Content-Length">>,<<"11">>}],
 
   ?assertMatch(
-  [{<<"Content-Length">>,<<"13">>},
-   {<<"Server">>,<<"Cowboy">>},
-   {<<"Set-Cookie">>,<<"foo=bar">>}],
+  [{<<"Set-Cookie">>,<<"foo=bar">>},
+   {<<"Content-Length">>,<<"13">>},
+   {<<"Server">>,<<"Cowboy">>}],
   merge_headers(Left0, Right0)),
 
   Left1  = [{<<"Content-Length">>,<<"13">>},{<<"Server">>,<<"Cowboy">>}],
   Right1 = [{<<"Set-Cookie">>,<<"foo=bar">>},{<<"Set-Cookie">>,<<"bar=baz">>}],
 
   ?assertMatch(
-  [{<<"Content-Length">>,<<"13">>},
-   {<<"Server">>,<<"Cowboy">>},
+  [{<<"Set-Cookie">>,<<"bar=baz">>},
    {<<"Set-Cookie">>,<<"foo=bar">>},
-   {<<"Set-Cookie">>,<<"bar=baz">>}],
+   {<<"Content-Length">>,<<"13">>},
+   {<<"Server">>,<<"Cowboy">>}],
   merge_headers(Left1, Right1)),
 
   ok.
