@@ -876,6 +876,14 @@ response_merge_headers(Headers, RespHeaders, DefaultHeaders) ->
 
 -spec merge_headers(cowboy_http:headers(), cowboy_http:headers())
 	-> cowboy_http:headers().
+
+%% Merge headers by prepending the tuples in the second list to the
+%% first list. It also handles Set-Cookie properly, which supports
+%% duplicated entries. Notice that, while the RFC2109 does allow more
+%% than one cookie to be set per Set-Cookie header, we are following
+%% the implementation of common web servers and applications which
+%% return many distinct headers per each Set-Cookie entry to avoid
+%% issues with clients/browser which may not support it.
 merge_headers(Headers, []) ->
 	Headers;
 merge_headers(Headers, [{<<"Set-Cookie">>, Value}|Tail]) ->
